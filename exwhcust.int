@@ -1,0 +1,111 @@
+version "1";
+
+object 'TSKL' "Main" {
+   {
+	 "Detail",
+   }
+};
+
+object 'TASK' "Detail" {
+   inputs     = {
+   		"customer",
+		"warehouse",
+		"state list",
+                },
+   processes  = {
+		"vendor keep calc",
+		"join",
+		"Do Calcs",
+		"state list calcs",
+		"join state list",
+		"filter on state list",
+                },
+   output     = "output"
+};
+
+
+object 'INPT'   "customer" {
+   input_type   = "Filein",
+   file_type   = `column_headers`,
+   delimiter   = `\t`,
+   union       = `true`,
+   filenames    ={
+   		 `../data/customer_master.txt`,
+   		 },   		 
+};
+
+object 'INPT'   "warehouse" {
+   input_type   = "Filein",
+   filenames     ={
+   		   `../data/gogwmpdd.csv`,
+   		 },   		   
+   dictfile     = "../programs/gogwmp.dic"
+};
+
+object 'INPT'   "state list" {
+   input_type   = "Filein",
+   filename     = "../execmdls/exbuildorder.txt",
+   file_type    = "column_headers",
+   aliases      = {
+	"State Name=Buildorder Name",
+   },
+};
+
+object 'PROC'   "vendor keep calc" {
+   input        = "customer",
+   process_type = "calc",
+   calcs        = {
+      {  column = "Vendor Keep Column",
+       calc_str = "\"Keep\"" },
+   },
+};
+
+object 'PROC'   "join" {
+   process_type = "lookup",
+   inputs       = {"vendor keep calc","warehouse"},
+   joins        = {"Warehouse Number","Warehouse Number" },
+};
+
+object 'PROC'   "state list calcs" {
+   process_type = "calc",
+   input        = "state list",
+   calcs        = {
+    {  column   = "State Filter",
+       calc_str = "\"Keep\""  },
+		  },
+};
+
+object 'PROC'   "join state list" {
+   process_type = "lookup",
+   inputs       = {"join","state list calcs"},
+   joins        = {"Warehouse State","State" },
+};
+
+object 'PROC'   "filter on state list" {
+   process_type = "filter",
+   input        = "join state list",
+   action       = "keep",
+   filters      = {
+      { column  = "State Filter",
+        values  = {"Keep"}},
+   },
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "filter on state list",
+   calcs        = {
+    {  column   = "Model",
+       calc_str = `concat(\"../temp/\",City Abbrev,\"-corpcust=\",Warehouse State,\".txt\")`  },
+		  },
+};
+
+object 'OUTP'   "output" {
+   output_type  = "split",
+   input        = "Do Calcs",
+   dictfile1    = "../temp/corpcust-wh.dic",
+   filename_column     = "Model",
+   reportfile   = "../temp/whcust.rep",
+   reportfile_type = "column_headers",
+   remove_columns = {"Model"},
+};

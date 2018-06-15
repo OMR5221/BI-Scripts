@@ -1,0 +1,75 @@
+version "1";
+
+object 'TSKL' "Main" {
+   {
+	 "Detail",
+   }
+};
+
+object 'TASK' "Detail" {
+   inputs     = {
+   		"old",
+   		"new",
+                },
+   processes  = {
+		"join",
+		"calcs",
+		"filter",
+                },
+   output     = "output"
+};
+
+
+object 'INPT'   "new" {
+   input_type   = "Filein",
+   filename     = "../temp/time.txt",
+   dictfile     = "../temp/time.dic",
+};
+
+object 'INPT'   "old" {
+   input_type   = "Filein",
+   filenames     ={
+      		`../data/lasttime.txt`,
+    		 },
+   dictfile     = "../temp/time.dic",
+   filename_column = "match flag",
+};
+
+object 'PROC' "join" {
+   process_type = "lookup",
+   inputs       = {"new","old"},
+   multijoins   = {
+	{"City Abbrev","City Abbrev"},
+	{"Year-Mo"    ,"Year-Mo"  },
+	{"Type"       ,"Type"     },
+   },
+};
+
+object 'PROC'   "calcs" {
+   process_type = "calc",
+   input        = "join",
+   calcs        = {
+    {  column   = "if this is the only line in the file, there are no changes",
+       calc_str = "if(and(match flag=\"\",type=\"00\"),concat(\"Warehouse \",City Abbrev,\" is changed\"),\"\")"}
+		  },
+};
+
+object 'PROC'   "filter" {
+   process_type = "filter",
+   input        = "calcs",
+   action       = "discard",
+   filters      = {
+	{column = "if this is the only line in the file, there are no changes",
+	 values = {""}},
+   },
+};
+
+object 'OUTP'   "output" {
+   output_type  = "fileout",
+   input        = "filter",
+   file_type    = "column_headers",
+   filename     = "../temp/changed.txt",
+   columns={
+	"if this is the only line in the file, there are no changes",
+   }
+};

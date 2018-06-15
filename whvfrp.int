@@ -1,0 +1,67 @@
+version "1";
+
+object 'TSKL' "Main" {
+   {
+	 "WHVFRP",
+   }
+};
+
+object 'TASK' "WHVFRP" {
+   inputs     = {
+   		"base input",
+                },
+   processes  = {
+		"calcs",
+                },
+   output     = "out"
+};
+
+
+object 'INPT'   "base input" {
+   input_type   = "Filein",
+   filename     = "../temp/whvfrp.txt",
+   file_type    = "column_headers",
+};
+
+object 'PROC'   "calcs" {
+   process_type = "calc",
+   input        = "base input",
+   calcs        = {
+    { column    = "Vendor YTD",
+    calc_str    = "if(and(substr(VFRP,1,4)=\"9999\",substr(VFRP,6,2)<=Fiscal Month Count),1,0)" },
+    { column    = "Vendor LYTD",
+    calc_str    = "if(and(substr(VFRP,1,4)=\"9998\",substr(VFRP,6,2)<=Fiscal Month Count),1,0)" },
+    { column    = "Vendor LY",
+    calc_str    = "if(substr(VFRP,1,4)=\"9998\",1,0)" },
+   },
+};
+
+object 'OUTP'   "out" {
+   output_type  = "fileout",
+   input        = "calcs",
+   file_type    = "column_headers",
+   filename     = "../temp/whvendortime.txt",
+   columns      = {
+	"City Abbrev",
+	"Year",
+	"Month",
+	"Vendor Fiscal Month",
+	"VFRP",
+	"Vendor YTD",
+	"Vendor LYTD",
+	"Vendor LY",
+	"Fiscal Month Count",
+	"Mo1",
+	"Mo2",
+	"Mo3",
+	"Mo4",
+	"Mo5",
+	"Mo6",
+	"Mo7",
+	"Mo8",
+	"Mo9",
+	"Mo10",
+	"Mo11",
+	"Mo12",
+   },
+};

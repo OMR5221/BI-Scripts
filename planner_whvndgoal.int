@@ -1,0 +1,824 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="LETTER",default=""},
+	{name="VND",default="false",type="boolean"},
+	{name="WH",type="boolean",default="false"},
+	{name="ST",type="boolean",default="false"},
+}};
+
+object 'TSKL' "Main" {
+   {
+	 "Join Tables and Split on Time",
+   }
+};
+
+object 'TASK' "Join Tables and Split on Time" {
+   inputs     = {
+	"VF Quota",
+	"VRC",
+	"VF Quota Again",
+	"VRC Again",
+	"VF Quota Master",
+	"VF Quota Ranges",
+	"Warehouse Master",
+	"Item Master",
+	"Salesman Crossref",
+	"Salesman",
+	"Customer Master",
+	"VRC Group Master",
+	"State List",
+	"Vendor Time",
+	"Time Lookup",
+	"Planner Goals",
+	"Planner Goals Master",
+   },
+   processes  = {
+	"Calc VRC",
+	"Join VRC",
+	"Calc VRC Again",
+	"Join VRC Again",
+	"Filter VF Quota Again",
+	"Squash VF Quota Again",
+	"Join VF Quota Again",
+	"Join VF Quota Master",
+	"VF Quota Calcs",
+	"VF Quota Ranges Calcs",
+	"VF Quota Ranges Expand",
+	"Join VF Quota Ranges",
+	"Join Warehouse Master",
+	"Join Item Master",
+	"Join Salesman Crossref",
+	"Join Salesman",
+	"Join Customer Master",
+	"VRC Group Master Calc",
+	"Join VRC Group Master",
+	"Join State List",
+	"Filter on State List",
+	"Filter Planner Goals Master",
+	"Join Planner Goals Master",
+	"Filter Planner Goals",
+	"Planner Goals Calcs",
+	"Squash Planner Goals",
+	"Join Planner Goals",
+	"Filter Out Planner Goals",
+	"Do Calcs",
+	"Vendor Time Squash",
+	"Join Vendor Time",
+	"Join Time Lookup",
+   },
+   output     = "Split"
+};
+
+object 'INPT'   "VF Quota" {
+   input_type     = "Filein",
+   filenames      = {
+	"../../global/data/current-goals.txt",
+	"../../global/data/original-goals.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Filename",
+   aliases        = {
+	"Goal Type=Internal Goal Type",
+	"YearMo=Year-Month",
+	"Units=Goal Cases",
+	"Program=Quota Description",
+   },
+   keep_columns   = {
+	"Year-Month",
+	"Warehouse Number",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+//	"Quota Description",
+	"Goal ID",
+
+	"Goal Cases",
+
+	"Filename",
+   },
+};
+
+object 'INPT'   "VF Quota Master" {
+   input_type     = "Filein",
+   filenames      = {
+	"../../global/data/goal-master.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Filename",
+   aliases        = {
+	"Goal Type=Internal Goal Type",
+	"Program Start Year-Month=Quota Start Date",
+	"Program End Year-Month=Quota End Date",
+	"Vendor Number=Goal Vendor Number",
+   },
+   keep_columns   = {
+	"Internal Goal Type",
+	"Goal Vendor Number",
+	"Quota Start Date",
+	"Quota End Date",
+	"Goal ID",
+   },
+};
+
+object 'INPT'   "VRC" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)gowimpdd.csv`,
+   dictfile       = "../../global/programs/gowimp.dic",
+   aliases        = {
+	"Vendor Report Code Number=VRC",
+	"Vendor Number=V",
+   },
+   keep_columns   = {
+	"Warehouse Number",
+	"Item Number",
+	"Pack Code",
+	"VRC",
+	"V",
+   },
+};
+
+object 'PROC' "Calc VRC" {
+   process_type   = "calc",
+   input          = "VRC",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "ltrim(Warehouse Number,\"0\")" },
+	{  column = "Item Number",
+	   update = "true",
+	 calc_str = "ltrim(Item Number,\"0\")" },
+	{  column = "Pack Code",
+	   update = "true",
+	 calc_str = "ltrim(Pack Code,\"0\")" },
+   },
+};
+
+object 'PROC'	"Join VRC" {
+   process_type   = "Lookup",
+   inputs         = {"VF Quota", "Calc VRC"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Item Number"     , "Item Number"     },
+	{"Pack Code"       , "Pack Code"       },
+   }
+};
+
+object 'INPT'   "VF Quota Again" {
+   input_type     = "Filein",
+   filenames      = {
+	"../../global/data/current-goals.txt",
+	"../../global/data/original-goals.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Filename",
+   aliases        = {
+	"Goal Type=Internal Goal Type",
+	"YearMo=Year-Month",
+	"Units=Goal Cases",
+	"Program=Quota Description",
+   },
+   keep_columns   = {
+	"Year-Month",
+	"Warehouse Number",
+	"Item Number",
+	"Pack Code",
+	"Goal ID",
+	"Filename",
+
+	"Quota Description",
+   },
+};
+
+object 'INPT'   "VRC Again" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)gowimpdd.csv`,
+   dictfile       = "../../global/programs/gowimp.dic",
+   aliases        = {
+	"Vendor Report Code Number=VRC",
+	"Vendor Number=V",
+   },
+   keep_columns   = {
+	"Warehouse Number",
+	"Item Number",
+	"Pack Code",
+	"VRC",
+	"V",
+   },
+};
+
+object 'PROC' "Calc VRC Again" {
+   process_type   = "calc",
+   input          = "VRC Again",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "ltrim(Warehouse Number,\"0\")" },
+	{  column = "Item Number",
+	   update = "true",
+	 calc_str = "ltrim(Item Number,\"0\")" },
+	{  column = "Pack Code",
+	   update = "true",
+	 calc_str = "ltrim(Pack Code,\"0\")" },
+   },
+};
+
+object 'PROC'	"Join VRC Again" {
+   process_type   = "Lookup",
+   inputs         = {"VF Quota Again", "Calc VRC Again"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Item Number"     , "Item Number"     },
+	{"Pack Code"       , "Pack Code"       },
+   },
+};
+
+object 'PROC' "Filter VF Quota Again" {
+   process_type   = "filter",
+   input          = "Join VRC Again",
+   action         = "discard",
+   filters        = {
+	{  column = "Quota Description",
+	   values = {"None"}},
+   },
+};
+
+object 'PROC' "Squash VF Quota Again" {
+   process_type   = "squash",
+   input          = "Filter VF Quota Again",
+   dimensions     = {
+	"Year-Month",
+	"Warehouse Number",
+	"V",
+	"VRC",
+	"Goal ID",
+	"Filename",
+   },
+   other_columns  = {
+	"Quota Description",
+   },
+};
+
+object 'PROC' "Join VF Quota Again" {
+   process_type   = "lookup",
+   inputs         = {"Join VRC","Squash VF Quota Again"},
+   multijoins     = {
+	{"Year-Month","Year-Month"},
+	{"Warehouse Number","Warehouse Number"},
+	{"V","V"},
+	{"VRC","VRC"},
+	{"Goal ID","Goal ID"},
+	{"Filename","Filename"},
+   },
+};
+
+object 'PROC'	"Join VF Quota Master" {
+   process_type   = "Lookup",
+   inputs         = {"Join VF Quota Again", "VF Quota Master"},
+   multijoins     = {
+	{"Goal ID", "Goal ID"},
+   }
+};
+
+object 'PROC' "VF Quota Calcs" {
+   process_type   = "calc",
+   input          = "Join VF Quota Master",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "lpad(Warehouse Number,7,\"0\")" },
+	{  column = "Customer Number",
+	   update = "true",
+	 calc_str = "lpad(Customer Number,10,\"0\")" },
+	{  column = "Item Number",
+	   update = "true",
+	 calc_str = "lpad(Item Number,5,\"0\")" },
+	{  column = "Pack Code",
+	   update = "true",
+	 calc_str = "lpad(Pack Code,2,\"0\")" },
+	{  column = "Goal Type",
+	 calc_str = "scan(scan(Filename,5,\"/\"),1,\"-\")" },
+	{  column = "Goal Model",
+	 calc_str = "if(Internal Goal Type=1,\"vendor\",if(Internal Goal Type=2,\"program\",\"unknown\"))" },
+	{  column = "YearMo",
+	 calc_str = "replace(Year-Month,\"-\",\"\")" },
+   },
+};
+
+object 'INPT'   "VF Quota Ranges" {
+   input_type     = "Filein",
+   filenames      = {
+	"../../global/temp/planner_program_months_current.txt",
+	"../../global/temp/planner_program_months_original.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Range Filename",
+   aliases        = {"Program=Quota Description"},
+};
+
+object 'PROC' "VF Quota Ranges Calcs" {
+   process_type   = "calc",
+   input          = "VF Quota Ranges",
+   calcs          = {
+	{  column = "Goal Type",
+	 calc_str = "scan(scan(scan(Range Filename,5,\"/\"),4,\"_\"),1,\".\")" },
+	{  column = "Rotate Start",
+	 calc_str = "Program Start Date" },
+	{  column = "Rotate End",
+	 calc_str = "Program End Date" },
+   },
+};
+
+object 'PROC' "VF Quota Ranges Expand" {
+   process_type   = "expand",
+   input          = "VF Quota Ranges Calcs",
+   type           = "Month",
+   start_column   = "Rotate Start",
+   end_column     = "Rotate End",
+   output_column  = "Year-Month",
+};
+
+object 'PROC'	"Join VF Quota Ranges" {
+   process_type   = "Lookup",
+   inputs         = {"VF Quota Calcs", "VF Quota Ranges Expand"},
+   multijoins     = {
+	{"Goal ID"          , "Goal ID"           },
+	{"Quota Description", "Quota Description" },
+	{"Year-Month"       , "Year-Month"        },
+	{"Goal Type"        , "Goal Type"         },
+   },
+};
+
+object 'INPT'   "Warehouse Master" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)gogwmpdd.csv`,
+   dictfile       = "../../global/programs/gogwmp.dic",
+   keep_columns   = {
+	"Warehouse Number",
+	"City Abbrev",
+	"Old Warehouse Number",
+	"Warehouse State",
+	"Warehouse City"
+   },
+};
+
+object 'PROC'	"Join Warehouse Master" {
+   process_type   = "Lookup",
+   inputs         = {"Join VF Quota Ranges", "Warehouse Master"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+   }
+};
+
+object 'INPT'   "Item Master" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)gowimpdd.csv`,
+   dictfile       = "../../global/programs/gowimp.dic",
+   aliases        = {
+	"Vendor Report Code=Vendor Report Code Name",
+   },
+   keep_columns   = {
+	"Warehouse Number",
+	"Item Number",
+	"Pack Code",
+	"Vendor Number",
+	"Vendor Name",
+	"Vendor Report Code Number",
+	"Vendor Report Code Name",
+	"Vendor Fiscal Month",
+	"Order Pad Number",
+	"Order Pad Group Name",
+	"Wine Gallons",
+	"Description 1",
+	"Size Description",
+   },
+};
+
+object 'PROC'	"Join Item Master" {
+   process_type   = "Lookup",
+   inputs         = {"Join Warehouse Master", "Item Master"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Item Number"     , "Item Number"     },
+	{"Pack Code"       , "Pack Code"       },
+   }
+};
+
+object 'INPT'   "Salesman Crossref" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)msxcmpdd.csv`,
+   dictfile       = "../../global/programs/msxcmp.dic",
+};
+
+object 'PROC'	"Join Salesman Crossref" {
+   process_type   = "Lookup",
+   inputs         = {"Join Item Master", "Salesman Crossref"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Customer Number" , "Customer Number" },
+	{"Order Pad Number", "Order Pad Number"},
+   }
+};
+
+object 'INPT'   "Salesman" {
+   input_type     = "Filein",
+   filename       = `../../global/data/$(LETTER)msslmpdd.csv`,
+   dictfile       = "../../global/programs/msslmp.dic",
+};
+
+object 'PROC'	"Join Salesman" {
+   process_type   = "Lookup",
+   inputs         = {"Join Salesman Crossref", "Salesman"},
+   multijoins     = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Salesman Number" , "Salesman Number" },
+   }
+};
+
+object 'INPT'   "Customer Master" {
+   input_type   = "Filein",
+   file_type   = `column_headers`,
+   delimiter   = `\t`,
+   filename     = `../../global/data/$(LETTER)customer_master.txt`,
+   keep_columns = {
+	"Warehouse Number",
+	"Customer Number",
+	"Business Name",
+	"Address 1",
+	"Mailing Address",
+	"City",
+	"State-Cust",
+	"ZIP Code",
+//	"customer permit code",
+//	"Tax Flag",
+//	"Delinquent Code",
+	"On/Off Premise Code",
+//	"Chain/Independent",
+//	"Route Number",
+	"Spirits/Specialties TRF Code",
+	"Wine TRF Code",
+	"Beer/Coolers TRF Code",
+	"Non-Alcoholic TRF Code",
+	"Average Ring/Premiumness TRF Code",
+	"Chain Number",
+	"Chain Name raw",
+	"Corp Chain Number",
+	"Corp Chain Name raw",
+	"County/Parish Name",
+	"Establishment Type Code",
+	"Establishment Type",
+	"Cust Phone",
+	"Permit Code",
+	"Customer Contact",
+//	"Customer# Xref",
+//	"A/R Salesman #",
+	"Market Type",
+	"TDLinx Chain Flag",
+	"TDLinx Store Number",
+	"TDLinx Outlet Name",
+	"TDLinx Outlet Number",
+	"TDLinx Store Address",
+	"TDLinx Store City",
+	"TDLinx Store State",
+	"TDLinx Store Zip",
+	"TDLinx Place Name",
+	"TDLinx FIPS StCode",
+	"TDLinx FIPS CntyCode",
+	"TDLinx FIPS Country Name",
+	"TDLinx Lat/Long Code",
+	"TDLinx Latitude",
+	"TDLinx Longitude",
+	"TDLinx Census Blockid",
+	"TDLinx Store Status",
+	"TDLinx Trade Channel Desc",
+	"TDLinx Sub Channel Desc",
+	"TDLinx Premise",
+	"TDLinx Spirits Flag",
+	"TDLinx Wine Flag",
+	"TDLinx Beer Flag",
+	"TDLinx Foodtype Desc",
+	"TDLinx On Premise Flag",
+	"TDLinx Hier Level",
+	"TDLinx Market Group",
+	"TDLinx Open Date",
+	"TDLinx Close Date",
+	"TDLinx Corp Parent Number",
+	"TDLinx Corp Parent Name",
+	"TDLinx Corp Banners Number",
+	"TDLinx Corp Banners Name",
+	"TDLinx Division/Franchise Number",
+	"TDLinx Division/Franchise Name",
+	"TDLinx Unit Outlets Number",
+	"TDLinx Unit Outlets Name",
+	"TDLinx Concept Owner",
+	"Mailing City",
+	"Mailing State",
+	"Mailing Zip",
+	"Customer Owner Name",
+   },
+};
+
+object 'PROC'	"Join Customer Master" {
+   process_type  = "Lookup",
+   inputs        = {"Join Salesman", "Customer Master"},
+   multijoins    = {
+           {"Customer Number", "Customer Number"},
+           {"Warehouse Number", "Warehouse Number"}
+		   }
+};
+
+object 'INPT'   "VRC Group Master" {
+   input_type     = "Filein",
+   filename       = `../../global/data/vrc-groups.txt`,
+   file_type      = "column_headers",
+};
+
+object 'PROC'   "VRC Group Master Calc" {
+   process_type   = "calc",
+   input          = "VRC Group Master",
+   calcs          = { 
+	{  column = "Vendor Number",
+	   update = "true",
+	 calc_str = "lpad(Vendor Number,7,\"0\")" },
+	{  column = "Vendor Report Code Number",
+	   update = "true",
+	 calc_str = "lpad(Vendor Report Code Number,2,\"0\")" },
+   },
+};
+
+object 'PROC'	"Join VRC Group Master" {
+   process_type   = "Lookup",
+   inputs         = {"Join Customer Master", "VRC Group Master Calc"},
+   multijoins     = {
+	{"Vendor Number"            , "Vendor Number"            },
+	{"Vendor Report Code Number", "Vendor Report Code Number"},
+   }
+};
+
+object 'INPT'   "State List" {
+   input_type     = "Filein",
+   file_type      = "column_headers",
+   filename       = "../../global/data/buildorder.txt",
+   aliases        = {
+#if ST
+	"State=Warehouse State",
+#endif
+#if WH
+	"State=City Abbrev",
+#endif
+#if VND
+	"State=Vendor Number",
+#endif
+	"State Name=Buildorder Name",
+   },
+};
+
+object 'PROC'	"Join State List" {
+   process_type   = "Lookup",
+   inputs         = {"Join VRC Group Master", "State List"},
+   multijoins     = {
+#if WH
+	{"City Abbrev", "City Abbrev"},
+#endif
+#if ST
+	{"Warehouse State","Warehouse State"},
+#endif
+#if VND
+	{"Vendor Number","Vendor Number"},
+#endif
+   },
+};
+
+object 'PROC'   "Filter on State List" {
+   process_type  = "filter",
+   input         = "Join State List",
+   action        = "discard",
+   filters       = {
+      { column   = "Buildorder Name",
+        values   = {""}},
+   },
+};
+
+object 'INPT'   "Vendor Time" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../../global/temp/vfquotatime.txt",
+   keep_columns = {
+	"City Abbrev",
+	"Vendor Fiscal Month",
+	"Mo1",
+	"Mo2",
+	"Mo3",
+	"Mo4",
+	"Mo5",
+	"Mo6",
+	"Mo7",
+	"Mo8",
+	"Mo9",
+	"Mo10",
+	"Mo11",
+	"Mo12",
+   },
+};
+
+object 'PROC'   "Vendor Time Squash" {
+   process_type   = "Squash",
+   input          = "Vendor Time",
+   dimensions     = {
+	"City Abbrev",
+	"Vendor Fiscal Month",
+   },
+   other_columns  = {
+	"Mo1",
+	"Mo2",
+	"Mo3",
+	"Mo4",
+	"Mo5",
+	"Mo6",
+	"Mo7",
+	"Mo8",
+	"Mo9",
+	"Mo10",
+	"Mo11",
+	"Mo12",
+   },
+};
+
+object 'PROC'	"Join Vendor Time" {
+   process_type   = "Lookup",
+   inputs         = {"Filter on State List", "Vendor Time Squash"},
+   multijoins     = {
+	{"Vendor Fiscal Month", "Vendor Fiscal Month"},
+	{"City Abbrev", "City Abbrev"},
+   }
+};
+
+object 'INPT'   "Time Lookup" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../../global/temp/whtimelookup.txt",
+   aliases      = {
+	"Year-Mo=Year-Month",
+   },
+};
+
+object 'PROC'	"Join Time Lookup" {
+   process_type  = "Lookup",
+   inputs        = {"Join Vendor Time", "Time Lookup"},
+   multijoins    = {
+           {"Year-Month" , "Year-Month"  },
+           {"City Abbrev", "City Abbrev" },
+   },
+   trace_after = {
+	qual_str = "Warehouse Number=\"900\" and Customer Number=\"25126\" and Item Number=\"52275\" and Year-Month=\"2008-01\"",
+   },
+};
+
+object 'INPT' "Planner Goals" {
+   input_type   = "filein",
+   filenames      = {
+	"../../global/data/original-goals.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Filename",
+   aliases        = {
+	"Goal ID=Planner Quota Number",
+   },
+   keep_columns   = {
+	"Planner Quota Number",
+   },
+};
+
+object 'INPT'   "Planner Goals Master" {
+   input_type     = "Filein",
+   filenames      = {
+	"../../global/data/goal-master.txt",
+   },
+   file_type      = "column_headers",
+   filename_column= "Filename",
+   aliases        = {
+	"Goal Type=Planner Vendor Flag",
+	"Goal ID=Planner Quota Number",
+   },
+   keep_columns   = {
+	"Warehouse Number",
+	"Vendor Number",
+	"Planner Quota Number",
+	"Planner Vendor Flag",
+   },
+};
+
+object 'PROC' "Filter Planner Goals Master" {
+   process_type   = "filter",
+   input          = "Planner goals Master",
+   action         = "keep",
+   filters        = {
+	{  column = "Planner Vendor Flag",
+	   values = {"2"}}, // 1=Vendor, 2=Program
+   },
+};
+
+object 'PROC'	"Join Planner Goals Master" {
+   process_type   = "Lookup",
+   inputs         = {"Planner Goals", "Filter Planner Goals Master"},
+   multijoins     = {
+	{"Planner Quota Number", "Planner Quota Number"},
+   }
+};
+
+object 'PROC' "Filter Planner Goals" { // another one to keep successful joins
+   process_type   = "filter",
+   input          = "Join Planner goals master",
+   action         = "keep",
+   filters        = {
+	{  column = "Planner Vendor Flag",
+	   values = {"2"}}, // 1=Vendor, 2=Program
+   },
+};
+
+object 'PROC' "Planner Goals Calcs" {
+   process_type   = "calc",
+   input          = "Filter Planner Goals",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "lpad(Warehouse Number,7,\"0\")" },
+	{  column = "Vendor Number",
+	   update = "true",
+	 calc_str = "lpad(Vendor Number,7,\"0\")" },
+   },
+};
+
+object 'PROC' "squash Planner goals" {
+   process_type   = "squash",
+   input          = "Planner goals Calcs",
+   dimensions     = {
+	"Warehouse Number",
+	"Vendor Number",
+	"Planner Vendor Flag",
+   },
+};
+
+object 'PROC'	"Join Planner Goals" {
+   process_type  = "Lookup",
+   inputs        = {"Join Time Lookup", "Squash Planner Goals"},
+   multijoins    = {
+	{"Warehouse Number", "Warehouse Number"},
+	{"Vendor Number", "Vendor Number"},
+   },
+};
+
+object 'PROC' "Filter Out Planner Goals" {
+   process_type   = "filter",
+   input          = "join planner goals",
+   action         = "keep",
+   filters        = {
+	{  column = "Planner Vendor Flag",
+	   values = {"2"}},
+   },
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "Filter Out Planner Goals",
+   calcs        = {
+#if VND
+    {  column   = "Model Path Calc",
+       calc_str = "concat(\"../temp/\",Buildorder Name,\"-vfquota=\",Vendor Number,\".txt\")"  },
+#else
+    {  column   = "Model Path Calc",
+       calc_str = "concat(\"../temp/\",City Abbrev,\"-planner_\",Goal Model,\"_goal=\",Warehouse State,\".txt\")"  },
+#endif
+    {  column   = "Model",
+       calc_str = "Model Path Calc"  },
+    {  column   = "Chain Name",
+       calc_str = "if(Chain Number=\"000\",\"ZZZ All Others\",Chain Name raw)" },
+    {  column   = "Corp Chain Name",
+       calc_str = "if(Corp Chain Number=\"000\",\"ZZZ All Others\",Corp Chain Name raw)" },
+    {  column   = "Vendor Report Code Number",
+       update   = "true",
+       calc_str = "Concat(Vendor Number,\"-\",Vendor Report Code Number)"  },
+   {   column   = "Program",
+//       calc_str = "if(Goal ID>0,Program,\"no program\")",
+       calc_str = "if(Goal ID>0,if(Goal Model=\"program\",concat(Vendor Number,\" \",Vendor Name,\" \",substr(Program Start Date,1,4),substr(Program Start Date,6,2),\"-\",substr(Program End Date,1,4),substr(Program End Date,6,2),\"  \",Goal ID,\"-\",Quota Description),\"\"),\"no program\")",
+},
+	{  column = "Branch Goal Cases",
+	 calc_str = "if(or(Goal Type=\"current\",Goal Type=\"\"),Goal Cases,0)" },
+	{  column = "Orig Branch Goal Cases",
+	 calc_str = "if(Goal Type=\"original\",Goal Cases,0)" },
+	{  column = "Vendor Report Group Desc",
+	 calc_str = "Vendor Report Code Group" },
+   },
+   trace_after  = {
+	  qual_str="Year-Month=\"2009-02\" and Customer Number=\"68247\" and Item Number=\"62121\""
+   },
+};
+
+object 'OUTP'   "Split" {
+   output_type  = "split",
+   input        = "Do Calcs",
+   dictfile1    = "../temp/planner_whvndgoal.dic",
+   filename_column = "Model",
+   reportfile   = "../temp/planner_whvndgoal.rep",
+   reportfile_type = "column_headers",
+};

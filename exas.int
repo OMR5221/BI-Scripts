@@ -1,0 +1,128 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="WH"},
+	{name="ST"},
+	{name="LETTER",default=""}
+}};
+
+object 'TSKL' "Main" {
+   {
+     "ASCalc"
+   }
+};
+
+object 'TASK' "ASCalc" {
+   inputs     = {
+		"Transactions",
+                },
+   processes  = {
+		"transaction calcs",
+		"sort",
+		"persistent calcs",
+		"persistent calcs 2",
+		"filter",
+                },
+   output     = "out"
+};
+
+object 'INPT' "Transactions" {
+   file_type      = "standard",
+   input_type     = "Filein",
+   starname       = `../temp/$WH-$(LETTER)year*.txt`,
+   dictfile       = "../temp/warehouse.dic",
+   keep_columns   = {
+	"Warehouse Number",
+	"Century",
+	"Year",
+	"Month",
+	"Raw Cases",
+	"Bottles",
+	"Units per Case",
+	"Gift Pack Conv CD",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+   },
+};
+
+object 'PROC' "transaction calcs" {
+   process_type = "Calc",
+   input        = "Transactions",
+   calcs        = {
+   { column     = "Year-Month",
+     calc_str   = "concat(Century,Year,\"-\",Month)"},
+   { column     = "Product Number",
+     calc_str   = "concat(Item Number,\"-\",Pack Code)"},
+   { column     = "AS_Year",
+     calc_str   = "substr(Year-Month,1,4)"},
+   { column     = "AS_Decimal Cases",
+     calc_str   = "(Raw Cases+Bottles/Units per Case)*Gift Pack Conv CD"},
+   { column     = "AS_SaleReturn",
+     calc_str   = "if(AS_Decimal Cases<0,\"return\",\"asale\")"},
+   },
+};
+
+object 'PROC' "sort" {
+   input          = "transaction calcs",
+   process_type   = "sort",
+   reverse        = "true",
+   sort_size      = 1000000000,
+   sort_columns   = {
+	"Customer Number",
+	"Product Number",
+	"Year-Month",
+	"AS_SaleReturn",
+	"AS_Decimal Cases",
+   },
+   numeric_columns = {
+//	"AS_Decimal Cases",
+   },
+};
+
+object 'PROC' "persistent calcs" {
+   process_type = "Calc",
+   input        = "sort",
+   calcs        = {
+   { column     = "AS_Last Product Number",
+     calc_str   = "Product Number",
+     persistent = "true",
+     initial_value = "impossible_item_number",
+                      },
+   { column     = "AS_Last Customer Number",
+     calc_str   = "Customer Number",
+     persistent = "true",
+     initial_value = "impossible_item_number",
+                      },
+   { column     = "AS_New Pair Flag",
+     calc_str   = "if(and(Product Number=AS_Last Product Number,Customer Number=AS_Last Customer Number),\"false\",\"true\")"},
+   },
+};
+
+object 'PROC' "persistent calcs 2" {
+   process_type = "Calc",
+   input        = "persistent calcs",
+   calcs        = {
+   { column     = "AS_Running Return Count",
+     calc_str   = "if(AS_New Pair Flag=\"true\",if(AS_SaleReturn=\"return\",AS_Decimal Cases,0),if(AS_SaleReturn=\"return\",AS_Running Return Count+AS_Decimal Cases,if(AS_Running Return Count+AS_Decimal Cases<0,AS_Running Return Count+AS_Decimal Cases,0)))",
+     persistent = "true",
+     initial_value = "0",
+                      },
+   { column     = "AS_This Line Sale",
+     calc_str   = "if(AS_New Pair Flag=\"true\",if(AS_Decimal Cases>0,\"Sale\",\"NoSale\"),if(AS_Running return Count+AS_Decimal Cases>0,\"Sale\",\"NoSale\"))",},
+   },
+};
+
+object 'PROC' "filter" {
+   input            = "persistent calcs 2",
+   process_type     = "filter",
+   action           = "discard",
+   filters          = {{column="AS_This Line Sale",values={"NoSale"}}}
+};
+
+object 'OUTP' "out" {
+   output_type      = "fileout",
+   input            = "filter",
+   filename         = `../temp/$WH-as=$ST.txt`,
+   dictfile2        = "../temp/as.dic",
+};

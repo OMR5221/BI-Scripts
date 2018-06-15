@@ -1,0 +1,301 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="WH",type="boolean",default="false"},
+	{name="VND",type="boolean",default="false"},
+	{name="ST",type="boolean",default="false"},
+}};
+
+object 'TSKL' "Main" {
+   {
+     "goal detail split"
+   }
+};
+
+object 'TASK' "goal detail split" {
+   inputs     = {
+	"Actuals",
+	"Item Master",
+	"Warehouse Master",
+	"XRef",
+	"VRC Groups",
+	"State List",
+	"Vendor List",
+   },
+   processes  = {
+	"Precalc",
+	"Break",
+	"Trace MaxYearMo",
+	"Join Item Master",
+	"Join Warehouse Master",
+	"Join Xref",
+	"Format VRC Groups",
+	"Join VRC Groups",
+	"Join State List",
+	"Filter State List",
+	"Join Vendor list",
+	"Filter Vendor List",
+	"final calcs",
+   },
+   output     = "out"
+};
+
+object 'INPT'   "actuals" {
+   input_type   = "Filein",
+   filenames    = {
+	"../data/year_0.csv",
+	"../data/year_1.csv",
+	"../data/year_2.csv",
+   },
+   dictfile     = "../programs/tranhist.dic",
+   keep_columns = {
+	"Warehouse Number",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+
+	"Century",
+	"Year",
+	"Month",
+
+	"Raw Cases",
+	"Bottles",
+   },
+};
+
+object 'PROC' "Precalc" {
+   process_type   = "calc",
+   input          = "actuals",
+   calcs          = {
+	{  column = "YearMo",
+	 calc_str = "concat(Century,Year,\"-\",Month)" },
+	{  column = "YearMoNum",
+	 calc_str = "concat(Century,Year,Month)" },
+	{  column = "MaxYearMoNum",
+	persistent= "true",
+	 calc_str = "if(YearMoNum>MaxYearMoNum,YearMoNum,MaxYearMoNum)" },
+	{  column = "MaxYearMoBreak",
+	 calc_str = "\"constant\"" },
+   },
+};
+
+object 'PROC' "Break" {
+   process_type   = "break",
+   input          = "Precalc",
+   break_columns  = {"MaxYearMoBreak"},
+   last_column    = "MaxYearMoFlag",
+};
+
+object 'PROC' "Trace MaxYearMo" {
+   process_type   = "trace",
+   input          = "break",
+   qual_str       = "MaxYearMoFlag=1",
+   columns        = {"MaxYearMoNum"},
+   format         = "column_headers",
+   verbose        = "false",
+   filename       = "../temp/goal_month.txt",
+};
+
+object 'INPT' "Item Master" {
+   input_type     = "filein",
+   filename       = "../data/gowimpdd.csv",
+   dictfile       = "../programs/gowimp.dic",
+   aliases        = {
+	"Vendor Report Code Number=VRC Number",
+   },
+   keep_columns   = {
+	"Warehouse Number",
+	"Item Number",
+	"Pack Code",
+	"Vendor Number",
+	"Order Pad Number",
+	"VRC Number",
+	"Units Per Case",
+
+	"Gift Pack Conv CD",
+	"Wine Gallons",
+   },
+};
+
+object 'PROC' "Join Item Master" {
+   process_type   = "lookup",
+   inputs         = {"Trace maxYearMo","Item Master"},
+   multijoins     = {
+	{"Warehouse Number","Warehouse Number"},
+	{"Item Number","Item Number"},
+	{"Pack Code","Pack Code"},
+   },
+};
+
+object 'INPT' "Warehouse Master" {
+   input_type   = "filein",
+   filename     = "../data/gogwmpdd.csv",
+   dictfile     = "../programs/gogwmp.dic",
+   keep_columns = {
+	"Warehouse Number",
+	"Warehouse State",
+	"City Abbrev",
+   },
+};
+
+object 'PROC' "Join Warehouse Master" {
+   process_type   = "lookup",
+   inputs         = {"Join Item Master","Warehouse Master"},
+   joins          = {"Warehouse Number","Warehouse Number"},
+};
+
+object 'INPT' "Xref" {
+   input_type   = "filein",
+   filename     = "../data/msxcmpdd.csv",
+   dictfile     = "../programs/msxcmp.dic",
+};
+
+object 'PROC' "Join Xref" {
+   process_type   = "lookup",
+   inputs         = {"Join Warehouse Master","Xref"},
+   multijoins     = {
+	{"Warehouse Number","Warehouse Number"},
+	{"Customer Number" ,"Customer Number" },
+	{"Order Pad Number","Order Pad Number"},
+   },
+};
+
+object 'INPT' "VRC Groups" {
+   input_type     = "filein",
+   filename       = "../data/vrc-groups.txt",
+   file_type      = "column_headers",
+   aliases        = {
+	"State=Warehouse State",
+	"Vendor Report Code Number=VRC Number",
+	"Vendor Report Code Group=VRC Group",
+   },
+   keep_columns   = {
+	"Warehouse State",
+	"Vendor Number",
+	"VRC Number",
+	"VRC Group",
+   },
+};
+
+object 'PROC' "Format VRC Groups" {
+   process_type   = "calc",
+   input          = "VRC Groups",
+   calcs          = {
+	{  column = "Vendor Number",
+	   update = "true",
+	 calc_str = "lpad(Vendor Number,7,\"0\")" },
+	{  column = "VRC Number",
+	   update = "true",
+	 calc_str = "lpad(VRC Number,2,\"0\")" },
+   },
+};
+
+object 'PROC' "Join VRC Groups" {
+   process_type   = "lookup",
+   inputs         = {"Join Xref","Format VRC Groups"},
+   multijoins     = {
+	{"Warehouse State","Warehouse State"},
+	{"Vendor Number","Vendor Number"},
+	{"VRC Number","VRC Number"},
+   },
+};
+
+object 'INPT'   "State List" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../execmdls/exbuildorder.txt",
+   aliases      = {
+	"State=Buildorder Key",
+   },
+   keep_columns = {
+	"Buildorder Key",
+   },
+};
+
+object 'PROC'	"Join State List" {
+   process_type  = "Lookup",
+   inputs        = {"Join VRC Groups", "State List"},
+   multijoins    = {
+           {"Warehouse State", "Buildorder Key"},
+   },
+};
+
+object 'PROC' "Filter State List" {
+   process_type   = "filter",
+   input          = "Join State List",
+   action         = "discard",
+   filters        = {
+	{  column = "Buildorder Key",
+	   values = {""}},
+   },
+};
+
+object 'INPT'   "Vendor List" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../execmdls/exvndlookup.txt",
+   aliases      = {
+	"Vndr=Vendor Filtercol",
+   },
+   keep_columns = {
+	"Vendor Filtercol",
+   },
+};
+
+object 'PROC'	"Join Vendor List" {
+   process_type  = "Lookup",
+   inputs        = {"Filter State List","Vendor List"},
+   multijoins    = {
+           {"Vendor Number", "Vendor Filtercol"},
+   },
+};
+
+object 'PROC'   "Filter Vendor List" {
+   process_type  = "filter",
+   input         = "Join Vendor List",
+   action        = "discard",
+   filters       = {
+      { column   = "Vendor Filtercol",
+        values   = {""}},
+   },
+};
+
+object 'PROC' "final calcs" {
+   process_type   = "calc",
+   input          = "Filter Vendor List",
+   calcs          = {
+	{  column = "filename_column",
+	 calc_str = "concat(\"../temp/planner_splits/actual_detail-\",Warehouse State,\"-\",Vendor Number,\".txt\")" },
+   },
+};
+
+object 'OUTP' "out" {
+   output_type      = "split",
+   input            = "final calcs",
+   filename_column  = "filename_column",
+   file_type        = "column_headers",
+   reportfile       = "../temp/goal_actual_detail.rep",
+   reportfile_type  = "column_headers",
+   columns          = {
+	"Warehouse Number",
+	"YearMo",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+
+	"Order Pad Number",
+	"Salesman Number",
+	"VRC Group",
+	"VRC Number",
+
+//	"Goal ID",
+//	"Program",
+
+	"Bottles",
+	"Raw Cases",
+	"Units per Case",
+
+	"Gift Pack Conv CD",
+	"Wine Gallons",
+   },	
+};

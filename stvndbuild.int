@@ -1,0 +1,135 @@
+version "1";
+
+object 'TSKL' "Main" {
+   { "corporate models" }
+};
+
+object 'TASK' "corporate models" {
+   inputs     = {"Report File","Build Order"},
+   processes  = {
+	"Do Calcs",
+	"join build order",
+	"Do Calcs 1",
+	"presort",
+	"squash",
+	"sort",
+	"Do Calcs 2"
+   },
+   output     = "run builds",
+};
+
+object 'INPT'   "Report File" {
+   input_type   = "Filein",
+   starname     = "../../global/temp/warehouse_st.rep",
+   file_type    = "column_headers",
+   aliases      = {"record_count=rcbase"},
+};
+
+object 'INPT'   "Build Order" {
+   input_type   = "Filein",
+   starname     = "../../global/data/buildorder.txt",
+   file_type    = "column_headers",
+   aliases      = {"Order=baseorder"},
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "Report File",
+   calcs        = {
+    {  column   = "record_count",
+       calc_str = "if(length(Model Type Base)<length(replace(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\"),\"mtd\",\"it would be great if integrator had real pattern matching\")),rcbase,0)" },
+    {  column   = "basename",
+       calc_str = "replace(filename,\".txt\",\"\")" },
+    {  column   = "basename2",
+       calc_str = "replace(basename,\"../temp/\",\"\")" },
+    {  column   = "State",
+       calc_str = "scan(basename2,2,\"=\")" },
+    {  column   = "Model Type Base",
+       calc_str = "scan(scan(basename2,1,\"=\"),2,\"-\")" },
+    {  column   = "Model Type",
+       calc_str = "if(length(Model Type Base)<length(replace(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\"),\"mtd\",\"it would be great if integrator had real pattern matching\")),scan(Model Type Base,1,\"_\"),Model Type Base)" },
+//       calc_str = "if(or(Model Type Base=\"year_0\",Model Type Base=\"year_1\",Model Type Base=\"year_2\",Model Type Base=\"year_3\",Model Type Base=\"year_4\"),\"year\",Model Type Base)" },
+    {  column   = "Sort Number",
+       calc_str = "if(length(Model Type Base)<length(replace(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\"),\"mtd\",\"it would be great if integrator had real pattern matching\")),1,2)" },
+    {  column   = "Letter",
+       calc_str = "if(length(Model Type Base)<length(replace(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\"),\"mtd\",\"it would be great if integrator had real pattern matching\")),if(length(Model Type)=5,substr(Model Type,1,1),\"\"),\"\")" },
+		  },
+};
+
+object 'PROC' "join build order" {
+   process_type  = "lookup",
+   inputs        = {"Do Calcs","Build Order"},
+   joins         = {"State","State"},
+};
+
+object 'PROC'   "Do Calcs 1" {
+   process_type = "calc",
+   input        = "join build order",
+   calcs        = {
+    {  column   = "Order",
+       calc_str = "if(baseorder>0,baseorder,999)" },
+		  },
+};
+
+object 'PROC'   "presort" {
+   process_type  = "sort",
+   input         = "Do Calcs 1",
+   sort_columns  = {"Order","State","Sort Number"},
+   numeric_columns  = {"Order"},
+};
+
+object 'PROC' "squash" {
+   process_type  = "squash",
+   input         = "presort",
+   dimensions    = {
+	"State",
+   },
+   summary       = {
+	"record_count",
+   },
+   other_columns = {"Order","Letter","Model Type"},
+};
+
+object 'PROC'   "sort" {
+   process_type  = "sort",
+   input         = "squash",
+   sort_columns  = {"Order","State","Model Type"},
+   numeric_columns  = {"Order"},
+};
+
+object 'PROC'   "Do Calcs 2" {
+   process_type = "calc",
+   input        = "sort",
+   calcs        = {
+    {  column   = "bfbase",
+       calc_str = "trunc(record_count/35)" },
+    {  column   = "bf",
+       calc_str = "if(Letter=\"\",\"3%\",\"5%\")" },
+    {  column   = "bf2base",
+       calc_str = "trunc(record_count/125)" },
+    {  column   = "bf2",
+       calc_str = "if(bf2base<5000,5000,if(bf2base>250000,250000,bf2base))"},
+		  },
+};
+
+object 'OUTP' "run builds" {
+//   output_type   = "fileout",
+   output_type   = "execrows",
+   output_file   = "../../global/log/asbuild.log",
+   input         = "Do Calcs 2",
+//   filename      = "../temp/testout.txt",
+//   file_type     = "column_headers",
+   commands       = {
+	"-builder stvndgoal.dsc -starname ../temp/stvndgoal=$State.txt -o ../models/$State/$State-$(Letter)stvndgoal.mdl -dk -ws 250000000 -bf 5% -ja ",
+	"-/bin/echo -n stvndgoal.dsc for $State done at:  >> ../../global/log/2.log",
+   },
+   append_output = "true",
+   echo          = "true",
+//   columns       = {
+//	"State",
+//	"Model Type",
+//	"record_count",
+//	"bf",
+//	"Letter",
+//   },
+};

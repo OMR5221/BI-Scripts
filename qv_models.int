@@ -1,0 +1,99 @@
+version "1";
+
+object 'PARM' "Parms" {parms={
+	{name="OUTDIR"},
+	{name="YEAREND",type="boolean",default="false"},
+	{name="TYPE"}, // only required for yearend
+}};
+
+object 'TSKL' "Main" {
+   {
+	"goal summary",
+	"goal type",
+	"sales measure",
+   }
+};
+
+object 'TASK' "goal summary" {
+   inputs     = {
+	"goal summary list",
+   },
+   output     = "goal summary build"
+};
+
+
+object 'INPT'   "goal summary list" {
+   input_type   = "list",
+   columns      = {"Goal Metric"},
+   values       = {{"Cases"},{"9L"},{"CE"}},
+};
+
+object 'OUTP'   "goal summary build" {
+   output_type  = "builder",
+   input        = "goal summary list",
+#if YEAREND
+   output       = `/di/yearend/models/$(TYPE)/$(OUTDIR)/goal_summary.mdl`,
+#else
+   output       = `../newmodels/$(OUTDIR)/goal_summary.mdl`,
+#endif
+   dimensions   = {"Goal Metric"},
+};
+
+
+
+
+object 'TASK' "goal type" {
+   inputs     = {
+	"goal type list",
+   },
+   output     = "goal type build"
+};
+
+
+object 'INPT'   "goal type list" {
+   input_type   = "list",
+   columns      = {"Goal Type"},
+   values       = {{"Current"},{"Original"}},
+};
+
+object 'OUTP'   "goal type build" {
+   output_type  = "builder",
+   input        = "goal type list",
+#if YEAREND
+   output       = `/di/yearend/models/$(TYPE)/$(OUTDIR)/goal_type.mdl`,
+#else
+   output       = `../newmodels/$(OUTDIR)/goal_type.mdl`,
+#endif
+   dimensions   = {"Goal Type"},
+};
+
+
+
+
+
+
+object 'TASK' "sales measure" {
+   inputs     = {
+	"sales measure list",
+   },
+   output     = "sales measure build"
+};
+
+
+object 'INPT'   "sales measure list" {
+   input_type   = "list",
+   columns      = {"Measure"},
+   values       = {{"Cases"},{"Flat Cases"},{"Dollars"},{"9L"},{"CE"},{"VS Cases"},{"VS 9L"},{"VS CE"}},
+};
+
+object 'OUTP'   "sales measure build" {
+   output_type  = "builder",
+   input        = "sales measure list",
+#if YEAREND
+   output       = `/di/yearend/models/$(TYPE)/$(OUTDIR)/Measure.mdl`,
+#else
+   output       = `../newmodels/$(OUTDIR)/Measure.mdl`,
+#endif
+   dimensions   = {"Measure"},
+};
+

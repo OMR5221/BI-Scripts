@@ -1,0 +1,240 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="WH",type="boolean",default="false"},
+	{name="VND",type="boolean",default="false"},
+	{name="ST",type="boolean",default="false"},
+}};
+
+object 'TSKL' "Main" {
+   {
+     "goal detail split"
+   }
+};
+
+object 'TASK' "goal detail split" {
+   inputs     = {
+	"original goals",
+	"Goal Master",
+	"Warehouse Master",
+	"XRef",
+	"State List",
+	"Vendor List",
+   },
+   processes  = {
+	"Join Goal Master",
+	"Format Fields",
+	"Join Warehouse Master",
+	"Join XRef",
+	"Join State List",
+	"Filter State List",
+	"Join Vendor List",
+	"Filter Vendor List",
+	"final calcs",
+   },
+   output     = "out"
+};
+
+object 'INPT'   "original goals" {
+   input_type   = "Filein",
+   filenames    = {
+	"../data/original-goals.txt",
+   },
+   file_type    = "column_headers",
+   keep_columns = {
+	"Warehouse Number",
+	"YearMo",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+
+	"Order Pad Number",
+	"VRC Group",
+	"VRC Number",
+
+	"Goal ID",
+	"Program",
+
+	"Units",
+	"Gallons Factor",
+   },
+};
+
+object 'INPT' "Goal Master" {
+   input_type     = "filein",
+   filename       = "../data/goal-master.txt",
+   file_type      = "column_headers",
+   keep_columns   = {
+	"Goal ID",
+	"Goal Type",
+	"Vendor Number",
+	"Program Start Year-Month",
+	"Program End Year-Month",
+   },
+};
+
+object 'PROC' "Join Goal Master" {
+   process_type   = "lookup",
+   inputs         = {"Original Goals","Goal Master"},
+   joins          = {"Goal ID","Goal ID"},
+};
+
+object 'INPT' "XRef" {
+   input_type     = "filein",
+   filename       = "../data/xref.txt",
+   file_type      = "column_headers",
+};
+
+object 'PROC' "Join XRef" {
+   process_type   = "lookup",
+   inputs         = {"Join Goal Master","XRef"},
+   multijoins     = {
+	{"Warehouse Number","Warehouse Number"},
+	{"Customer Number","Customer Number"},
+	{"Order Pad Number","Order Pad Number"},
+   },
+};
+
+object 'PROC' "format fields" {
+   process_type   = "calc",
+   input          = "Join XRef",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "lpad(Warehouse Number,7,\"0\")" },
+	{  column = "Customer Number",
+	   update = "true",
+	 calc_str = "lpad(Customer Number,5,\"0\")" },
+	{  column = "Item Number",
+	   update = "true",
+	 calc_str = "lpad(Item Number,5,\"0\")" },
+	{  column = "Pack Code",
+	   update = "true",
+	 calc_str = "lpad(Pack code,2,\"0\")" },
+	{  column = "Vendor Number",
+	   update = "true",
+	 calc_str = "lpad(Vendor Number,7,\"0\")" },
+	{  column = "Salesman Number",
+	   update = "true",
+	 calc_str = "lpad(Salesman Number,3,\"0\")" },
+	{  column = "Order Pad Number",
+	   update = "true",
+	 calc_str = "lpad(Order Pad Number,3,\"0\")" },
+	{  column = "Units",
+	   update = "true",
+	 calc_str = "Units*1000000" },
+   },
+};
+
+object 'INPT' "Warehouse Master" {
+   input_type   = "filein",
+   filename     = "../data/gogwmpdd.csv",
+   dictfile     = "../programs/gogwmp.dic",
+   keep_columns = {
+	"Warehouse Number",
+	"Warehouse State",
+	"City Abbrev",
+   },
+};
+
+object 'PROC' "Join Warehouse Master" {
+   process_type   = "lookup",
+   inputs         = {"Format Fields","Warehouse Master"},
+   joins          = {"Warehouse Number","Warehouse Number"},
+};
+
+object 'INPT'   "State List" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../execmdls/exbuildorder.txt",
+   aliases      = {
+	"State=buildorder key",
+   },
+   keep_columns = {
+	"Buildorder Key",
+   },
+};
+
+object 'PROC'	"Join State List" {
+   process_type  = "Lookup",
+   inputs        = {"Join Warehouse Master", "State List"},
+   multijoins    = {
+           {"Warehouse State", "Buildorder Key"},
+   },
+};
+
+object 'PROC' "Filter State List" {
+   process_type   = "filter",
+   input          = "Join State List",
+   action         = "discard",
+   filters        = {
+	{  column = "Buildorder Key",
+	   values = {""}},
+   },
+};
+
+object 'INPT'   "Vendor List" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../execmdls/exvndlookup.txt",
+   aliases      = {
+	"Vndr=Vendor Filtercol",
+   },
+   keep_columns = {
+	"Vendor Filtercol",
+   },
+};
+
+object 'PROC'	"Join Vendor List" {
+   process_type  = "Lookup",
+   inputs        = {"Filter State List","Vendor List"},
+   multijoins    = {
+           {"Vendor Number", "Vendor Filtercol"},
+   },
+};
+
+object 'PROC'   "Filter Vendor List" {
+   process_type  = "filter",
+   input         = "Join Vendor List",
+   action        = "discard",
+   filters       = {
+      { column   = "Vendor Filtercol",
+        values   = {""}},
+   },
+};
+
+object 'PROC' "final calcs" {
+   process_type   = "calc",
+   input          = "Filter Vendor List",
+   calcs          = {
+	{  column = "filename_column",
+	 calc_str = "concat(\"../temp/planner_splits/goal_detail-\",Warehouse State,\"-\",Vendor Number,\"-\",Goal ID,\"-\",Program,\".txt\")" },
+   },
+};
+
+object 'OUTP' "out" {
+   output_type      = "split",
+   input            = "final calcs",
+   filename_column  = "filename_column",
+   file_type        = "column_headers",
+   reportfile       = "../temp/goal_detail.rep",
+   reportfile_type  = "column_headers",
+   columns          = {
+	"Warehouse Number",
+	"YearMo",
+	"Customer Number",
+	"Item Number",
+	"Pack Code",
+
+	"Order Pad Number",
+	"Salesman Number",
+	"VRC Group",
+	"VRC Number",
+
+	"Goal ID",
+	"Program",
+
+	"Units",
+	"Gallons Factor",
+   },	
+};

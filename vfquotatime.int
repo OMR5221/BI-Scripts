@@ -1,0 +1,115 @@
+version "1";
+
+object 'TSKL' "Main" {
+   {
+	 "WHVFRP",
+   }
+};
+
+object 'TASK' "WHVFRP" {
+   inputs     = {
+   		"base input",
+                },
+   processes  = {
+		"infilter",
+		"calcs",
+		"expand",
+		"calcs2",
+                },
+   output     = "out"
+};
+
+
+object 'INPT'   "base input" {
+   input_type   = "Filein",
+   filename     = "../temp/whvfrp.txt",
+   file_type    = "column_headers",
+   aliases      = {
+	"Vendor Fiscal Month=VFM Base",
+   },
+};
+
+object 'PROC'   "infilter" {
+   process_type = "filter",
+   input        = "base input",
+   action       = "keep",
+   filters      = {
+      {  column = "VFRP",
+         values = {"0001-01"}},
+   },
+};
+
+object 'PROC'   "calcs" {
+   process_type = "calc",
+   input        = "infilter",
+   calcs        = {
+    { column    = "Curmo Index",
+    calc_str    = "Current Year*12+Current Month" },
+    { column    = "Startmo Index",
+    calc_str    = "Curmo Index-Fiscal Month Count" },
+    { column    = "Endmo Index",
+    calc_str    = "Startmo Index+11" },
+    { column    = "EndmoNY Index",
+    calc_str    = "Startmo Index+23" },
+    { column    = "Startmo",
+    calc_str    = "concat(trunc((Startmo Index-1)/12),\"-\",mod(Startmo Index-1,12)+1)" },
+    { column    = "EndmoNY",
+    calc_str    = "concat(trunc((EndmoNY Index-1)/12),\"-\",mod(EndmoNY Index-1,12)+1)" },
+   },
+};
+
+object 'PROC'   "expand" {
+   process_type = "expand",
+   input        = "calcs",
+   start_column = "Startmo",
+   end_column   = "EndmoNY",
+   output_column = "Year-Month",
+   type         = "month",
+};
+
+object 'PROC'   "calcs2" {
+   process_type = "calc",
+   input        = "expand",
+   calcs        = {
+    { column    = "Yearmo Index",
+    calc_str    = "substr(Year-Month,1,4)*12+substr(Year-Month,6,2)" },
+    { column    = "Vendor YTD",
+    calc_str    = "if(Yearmo Index>=Curmo Index,0,1)" },
+    { column    = "Vendor TY",
+    calc_str    = "if(Yearmo Index<=Endmo Index,1,0)" },
+    { column    = "Vendor NY",
+    calc_str    = "if(and(Yearmo Index>Endmo Index,Yearmo Index<=EndmoNY Index),1,0)" },
+    { column    = "Vendor Fiscal Month",
+    calc_str    = "substr(100+VFM Base,2,2)" },
+    { column    = "YearMo",
+    calc_str    = "concat(substr(Year-Month,1,4),substr(Year-Month,6,2))" },
+   },
+};
+
+object 'OUTP'   "out" {
+   output_type  = "fileout",
+   input        = "calcs2",
+   file_type    = "column_headers",
+   filename     = "../temp/vfquotatime.txt",
+   columns      = {
+	"YearMo",
+	"City Abbrev",
+	"Vendor Fiscal Month",
+	"Vendor YTD",
+	"Vendor TY",
+	"Vendor NY",
+	"Fiscal Month Count",
+	"Mo1",
+	"Mo2",
+	"Mo3",
+	"Mo4",
+	"Mo5",
+	"Mo6",
+	"Mo7",
+	"Mo8",
+	"Mo9",
+	"Mo10",
+	"Mo11",
+	"Mo12",
+   },
+};

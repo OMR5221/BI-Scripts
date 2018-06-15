@@ -1,0 +1,12 @@
+State	Order	State Name
+TYPELINE	DO NOT REMOVE	STATE
+TX	1	Texas
+LA	2	Louisiana
+MO	3	Missouri
+AR	4	Arkansas
+IN	5	Indiana
+IA	6	Iowa
+OH	7	Ohio
+KS	8	Kansas
+AZ	9	Arizona
+OK	10	Oklahoma

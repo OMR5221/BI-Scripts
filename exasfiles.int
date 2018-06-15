@@ -1,0 +1,62 @@
+version "1";
+
+object 'TSKL' "Main" {
+   { "ASFiles" }
+};
+
+object 'TASK' "ASFiles" {
+   inputs     = {"Report File"},
+   processes  = {"Do Calcs","squash"},
+   output     = "run builds",
+};
+
+object 'INPT'   "Report File" {
+   input_type   = "Filein",
+   starname     = "../temp/wa*.rep",
+   file_type    = "column_headers",
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "Report File",
+   calcs        = {
+    {  column   = "basename",
+       calc_str = "replace(filename,\".txt\",\"\")" },
+    {  column   = "basename2",
+       calc_str = "replace(basename,\"../temp/\",\"\")" },
+    {  column   = "Warehouse",
+       calc_str = "scan(basename2,1,\"-\")" },
+    {  column   = "State",
+       calc_str = "scan(basename2,2,\"=\")" },
+    {  column   = "Model Type Base",
+       calc_str = "scan(scan(basename2,1,\"=\"),2,\"-\")" },
+    {  column   = "Model Type",
+       calc_str = "if(length(Model Type Base)<length(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\")),scan(Model Type Base,1,\"_\"),Model Type Base)" },
+
+    {  column   = "Letter",
+       calc_str = "if(length(Model Type Base)<length(replace(Model Type Base,\"year\",\"it would be great if integrator had real pattern matching\")),if(length(Model Type)=5,substr(Model Type,1,1),\"\"),\"\")" },
+		  },
+};
+
+object 'PROC' "squash" {
+   process_type  = "squash",
+   input         = "Do Calcs",
+   dimensions    = {
+	"Warehouse",
+	"State",
+   },
+   summary       = {
+   },
+   other_columns = {"Letter"},
+};
+
+object 'OUTP' "run builds" {
+   output_type   = "execrows",
+   input         = "squash",
+   commands      = {
+	"-integ exas.int -define ST=$(State) -define WH=$(Warehouse)",
+	"-integ exasjoin.int -define ST=$(State) -define WH=$(Warehouse)",
+   },
+   append_output = "true",
+   echo          = "true",
+};

@@ -1,0 +1,88 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="LETTER",default=""},
+}};
+
+object 'TSKL' "Main" {
+   {
+	 "Detail",
+   }
+};
+
+object 'TASK' "Detail" {
+   inputs     = {
+   		"time",
+   		"warehouse master",
+                },
+   processes  = {
+	"filter time",
+	"update time",
+		"join warehouse master",
+		"calcs",
+                },
+   output     = "output"
+};
+
+
+object 'INPT'   "time" {
+   input_type   = "Filein",
+   filename     = `../data/time.csv`,
+   dictfile     = "../programs/time.dic",
+   aliases      = {"Warehouse=Warehouse Number"},
+};
+
+object 'PROC' "filter time" {
+   process_type   = "filter",
+   input          = "time",
+   action         = "keep",
+   filters        = {
+	{  column = "Warehouse Number",
+	   values = {"0000101"}},
+   },
+};
+
+object 'PROC' "update time" {
+   process_type   = "calc",
+   input          = "filter time",
+   calcs          = {
+	{  column = "Warehouse Number",
+	   update = "true",
+	 calc_str = "\"0000301\"" },
+   },
+};
+
+object 'INPT'   "Warehouse Master" {
+   input_type   = "Filein",
+   filename     = `../data/ok_gogwmpdd.csv`,
+   dictfile     = "../programs/gogwmp.dic",
+   keep_columns = {"Warehouse Number","City Abbrev"},
+};
+
+object 'PROC'   "Join Warehouse Master" {
+   process_type = "lookup",
+   inputs       = {"update time","warehouse master"},
+   joins        = {"Warehouse Number","Warehouse Number"},
+};
+
+object 'PROC'   "calcs" {
+   process_type = "calc",
+   input        = "join warehouse master",
+   calcs        = {
+    {  column   = "Year-Mo",
+       calc_str = "concat(Century,Year,\"-\",Month)"}
+		  },
+};
+
+object 'OUTP'   "output" {
+   output_type  = "fileout",
+   input        = "calcs",
+   dictfile1    = "../temp/time.dic",
+   filename     = "../temp/time.txt",
+   append       = "true",
+   columns={
+	"City Abbrev",
+	"Year-Mo",
+	"Type",
+   }
+};

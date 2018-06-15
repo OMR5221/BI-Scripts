@@ -1,0 +1,129 @@
+version "1";
+
+object 'TSKL' "Main" {
+   {
+	 "Detail",
+   }
+};
+
+object 'TASK' "Detail" {
+   inputs     = {
+   		"item",
+		"warehouse",
+		"whvendortime",
+		"state list",
+                },
+   processes  = {
+		"join",
+		"Do Calcs",
+		"squash whvendortime",
+		"Join whvendortime",
+		"state list calcs",
+		"join state list",
+		"filter on state list",
+                },
+   output     = "Split"
+};
+
+
+object 'INPT'   "item" {
+   input_type   = "Filein",
+   filename     = `../data/gowimpdd.csv`,
+   dictfile     = "../programs/gowimp.dic"
+};
+
+object 'INPT'   "warehouse" {
+   input_type   = "Filein",
+   filename     = `../data/gogwmpdd.csv`,
+   dictfile     = "../programs/gogwmp.dic"
+};
+
+object 'INPT'   "whvendortime" {
+   input_type   = "Filein",
+   filename     = "../temp/whvendortime.txt",
+   file_type    = "column_headers",
+   keep_columns = {"City Abbrev","Vendor Fiscal Month","Fiscal Month Count"},
+};
+
+object 'INPT'   "state list" {
+   input_type   = "Filein",
+   filename     = "../execmdls/exbuildorder.txt",
+   file_type    = "column_headers",
+   aliases      = {
+	"State Name=Buildorder Name"
+   },
+};
+
+object 'PROC'   "join" {
+   process_type = "lookup",
+   inputs       = {"item","warehouse"},
+   joins        = {"Warehouse Number","Warehouse Number" },
+};
+
+object 'PROC'   "squash whvendortime" {
+   process_type = "squash",
+   input        = "whvendortime",
+   adjacent     = "false",
+   dimensions   = {
+	"City Abbrev",
+	"Vendor Fiscal Month",
+   },
+   info         = {
+	"Fiscal Month Count",
+   },
+};
+
+object 'PROC'   "join whvendortime" {
+   process_type = "lookup",
+   inputs       = {"join","squash whvendortime"},
+   multijoins   = {
+	{"City Abbrev","City Abbrev" },
+	{"Vendor Fiscal Month","Vendor Fiscal Month" },
+   },
+};
+
+object 'PROC'   "state list calcs" {
+   process_type = "calc",
+   input        = "state list",
+   calcs        = {
+    {  column   = "State Filter",
+       calc_str = "\"Keep\""  },
+		  },
+};
+
+object 'PROC'   "join state list" {
+   process_type = "lookup",
+   inputs       = {"join whvendortime","state list calcs"},
+   joins        = {"Warehouse State","State" },
+};
+
+object 'PROC'   "filter on state list" {
+   process_type = "filter",
+   input        = "join state list",
+   action       = "keep",
+   filters      = {
+      { column  = "State Filter",
+        values  = {"Keep"}},
+   },
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "filter on state list",
+   calcs        = {
+    {  column   = "Vendor RC# Base",
+       calc_str = "Vendor Report Code Number"  },    
+    {  column   = "Model",
+       calc_str = `concat(\"../temp/\",City Abbrev,\"-corpitem=\",Warehouse State,\".txt\")`  },
+		  },
+};
+
+object 'OUTP'   "Split" {
+   output_type  = "split",
+   input        = "Do calcs",
+   dictfile1    = "../temp/corpitem-wh.dic",
+   filename_column     = "Model",
+   reportfile   = "../temp/whitem.rep",
+   reportfile_type = "column_headers",
+   remove_columns = {"Vendor Report Code Number","Model"},
+};

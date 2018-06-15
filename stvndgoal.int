@@ -1,0 +1,271 @@
+version "1";
+
+object 'PARM' "Parms" {Parms={
+	{name="LETTER",default=""},
+	{name="WH",type="boolean",default="false"},
+}};
+
+object 'TSKL' "Main" {
+   {
+	 "Vendor Goals by State",
+   }
+};
+
+object 'TASK' "Vendor Goals by State" {
+   inputs     = {
+		"State List",
+		"State Goals",
+		"Time Lookup",
+		"Warehouse Master",
+	"Planner Check",
+                },
+   processes  = {
+		"Join Warehouse Master",
+		"State List Calcs",
+		"Join State List",
+		"Filter on State List",
+		"Time Calcs",
+		"Join Time Lookup",
+	"Join Planner Check",
+	"Filter Planner Check",
+		"Do Calcs",
+                },
+   output     = "Split"
+};
+
+
+object 'INPT'   "State Goals" {
+   input_type   = "Filein",
+   filenames    = {
+		   `../../global/data/$(LETTER)vndgoaldd.csv`,
+                  },
+   dictfile     = "../../global/programs/vndgoal.dic"
+};
+
+object 'INPT' "Planner Check" {
+   input_type   = "filein",
+   filename      = "../../global/temp/planner_check.txt",
+   file_type      = "column_headers",
+};
+
+object 'PROC'	"Join Planner Check" {
+   process_type   = "Lookup",
+   inputs         = {"state goals", "Planner Check"},
+   multijoins     = {
+	{"Warehouse State", "Warehouse State"},
+	{"Vendor Number","Vendor Number"},
+   }
+};
+
+object 'PROC' "Filter Planner Check" {
+   process_type   = "filter",
+   input          = "Join Planner check",
+   action         = "discard",
+   filters        = {
+	{  column = "Goal Type Flag",
+	   values = {"Program","Both"}},
+   },
+};
+
+object 'INPT'   "State List" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../../global/data/buildorder.txt",
+};
+
+object 'INPT'   "Warehouse Master" {
+   input_type   = "Filein",
+   filename     = `../../global/data/$(LETTER)gogwmpdd.csv`,
+   dictfile     = "../../global/programs/gogwmp.dic",
+   keep_columns = {"Warehouse Number","City Abbrev","Old Warehouse Number"},
+};
+
+object 'INPT'   "Time Lookup" {
+   input_type   = "Filein",
+   file_type    = "column_headers",
+   filename     = "../../global/temp/whtimelookup.txt",
+};
+
+object 'PROC'   "State List Calcs" {
+   process_type = "calc",
+   input        = "State List",
+   calcs        = {
+    {  column   = "State List Filter",
+       calc_str = "\"Keep\""  },
+		  },
+};
+
+object 'PROC'   "Time Calcs" {
+   process_type = "calc",
+   input        = "Time Lookup",
+   calcs        = {
+    {  column   = "Year2",
+       calc_str = "substr(100+Year,2,2)"  },
+    {  column   = "Month2",
+       calc_str = "substr(100+Month,2,2)"  },
+    {  column   = "Year4",
+       calc_str = "concat(Century,Year2)" },
+    {  column   = "YearMo",
+       calc_str = "concat(Century,Year2,Month2)" },
+		  },
+};
+
+object 'PROC'   "PreFilter" {
+   input         = "Transaction History",
+   process_type  = "filter",
+   action        = "keep",
+   filters       = {
+	{ column = "Item Number",
+          values = {"79626","06658","61704","04670","04669","55356","44996","56645","04672","55355","45905","55353","04440","04441","03087","06343","08724"} } }
+};
+
+object 'PROC'   "Join Warehouse Master" {
+   process_type  = "lookup",
+   inputs        = {"filter planner check","Warehouse Master"},
+   joins         = {"Warehouse Number", "Warehouse Number"},
+};
+
+object 'PROC'	"Join State List" {
+   process_type  = "Lookup",
+   inputs        = {"Join Warehouse Master", "State List Calcs"},
+   multijoins    = {
+#if WH
+           {"Warehouse Number", "State"},
+#else
+           {"Warehouse State", "State"},
+#endif
+		   }
+};
+
+object 'PROC'   "Filter on State List" {
+   process_type  = "filter",
+   input         = "Join State List",
+   action        = "keep",
+   filters       = {
+      { column   = "State List Filter",
+        values   = {"Keep"}},
+   },
+};
+
+object 'PROC'	"Join Time Lookup" {
+   process_type  = "Lookup",
+//   inputs        = {"PreFilter", "Time Calcs"},
+   inputs        = {"Filter on State List", "Time Calcs"},
+   multijoins    = {
+           {"YearMo", "YearMo"},
+           {"City Abbrev", "City Abbrev"}
+		   }
+};
+
+object 'PROC'   "Do Calcs" {
+   process_type = "calc",
+   input        = "Join Time Lookup",
+   calcs        = {
+    {  column   = "Model",
+       calc_str = "concat(\"../temp/stvndgoal=\",Warehouse State,\".txt\")"  },
+    {  column   = "Orig Program Goal Cases",
+       calc_str = "Program Goal Cases" },
+    {  column   = "Program Goal 9L",
+       calc_str = "0" },
+    {  column   = "Orig Program Goal 9L",
+       calc_str = "0" },
+    {  column   = "Program Goal CE",
+       calc_str = "0" },
+    {  column   = "Orig Program Goal CE",
+       calc_str = "0" },
+
+
+
+//    {  column   = "VFM2",
+//       calc_str = "substr(100+Vendor Fiscal Month,2,2)"  },
+//    {  column   = "VFRP Raw",
+//       calc_str = "concat(Vendor Fiscal Month,\"-\",Year-Mo)" },
+
+
+
+    {  column   = "Salesman Number",
+       calc_str = "\"9999\""  },
+    {  column   = "Salesman Name",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Customer Number",
+       calc_str = "\"999999\""  },
+    {  column   = "Business Name",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "On/Off Premise",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Market Type",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "TDLinx Premise",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "TDLinx On Premise Flag",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Category Class",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Wine Country/State",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Major Class",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "Establishment Type",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "TDLinx Trade Channel Desc",
+       calc_str = "\"AS400 Goal\""  },
+    {  column   = "TDLinx Sub Channel Desc",
+       calc_str = "\"AS400 Goal\""  },
+
+
+
+		  },
+};
+
+object 'OUTP'   "Split" {
+   output_type  = "split",
+   input        = "Do Calcs",
+   dictfile1    = "../temp/stvndgoal.dic",
+   filename_column = "Model",
+   reportfile   = "../temp/stvndgoal.rep",
+   reportfile_type = "column_headers",
+   columns      = {
+	"Warehouse State",
+	"Warehouse City",
+	"City Abbrev",
+	"Old Warehouse Number",
+	"Century",
+	"Year",
+	"Month",
+	"YearMo",
+	"Vendor Number",
+	"Vendor Name",
+	"Vendor RC# Base",
+	"Vendor Report Code Name",
+	"Vendor Report Group Number",
+	"Vendor Report Group Desc",
+	"Program Start Date",
+	"Program End Date",
+	"Quota Number",
+	"Quota Description",
+	"Program Goal Cases",
+	"Orig Program Goal Cases",
+	"Program Goal 9L",
+	"Orig Program Goal 9L",
+	"Program Goal CE",
+	"Orig Program Goal CE",
+	"MTD",
+
+
+	"Salesman Number",
+	"Salesman Name",
+	"Customer Number",
+	"Business Name",
+	"On/Off Premise",
+	"Market Type",
+	"TDLinx Premise",
+	"TDLinx On Premise Flag",
+	"Category Class",
+	"Wine Country/State",
+	"Major Class",
+	"Establishment Type",
+	"TDLinx Trade Channel Desc",
+	"TDLinx Sub Channel Desc",
+
+   },
+};
